@@ -53,7 +53,7 @@ function renderVersionList() {
   let versions = state.minecraft;
   if (fabricOnly) versions = versions.filter((v) => state.fabric.includes(v.id));
   versions = versions.filter((v) => v.id.toLowerCase().includes(q));
-  const matched = versions.slice(0, 300);
+  const matched = versions;
 
   const releases = matched.filter((v) => v.type === 'release');
   const snapshots = matched.filter((v) => v.type !== 'release');
