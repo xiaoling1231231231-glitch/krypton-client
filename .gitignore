@@ -5,6 +5,7 @@ node_modules/
 mod/build/
 mod/.gradle/
 mod/run/
+app/build/
 
 # Launcher runtime data
 launcher/data/
