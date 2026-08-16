@@ -13,7 +13,7 @@ public class CustomTitle extends Module {
             "Nonbinary", "Asexual", "Aromantic", "Genderfluid");
 
     public CustomTitle() {
-        super("CustomTitle", "Replaces the Minecraft title with custom gradient text", Category.MISC);
+        super("CustomTitle", "Replaces the Minecraft title with custom gradient text", Category.MISC, true);
         addSetting(title);
         addSetting(palette);
     }

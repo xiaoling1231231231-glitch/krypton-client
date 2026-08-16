@@ -17,13 +17,18 @@ public abstract class Module {
     protected static final MinecraftClient mc = MinecraftClient.getInstance();
 
     protected Module(String name, String description, Category category) {
+        this(name, description, category, false);
+    }
+
+    protected Module(String name, String description, Category category, boolean defaultEnabled) {
         this.name = name;
         this.description = description;
         this.category = category;
+        this.enabled = defaultEnabled;
     }
 
     protected Module(String name, Category category) {
-        this(name, "", category);
+        this(name, "", category, false);
     }
 
     protected void addSetting(Setting<?> setting) {
