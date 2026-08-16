@@ -1,0 +1,23 @@
+# Node
+node_modules/
+
+# Build outputs
+mod/build/
+mod/.gradle/
+mod/run/
+
+# Launcher runtime data
+launcher/data/
+
+# Game runtime (local installs stay on disk)
+*.jar
+*.log
+!mod/build/libs/krypton-client-1.0.0.jar
+
+# macOS
+.DS_Store
+
+# Env / secrets
+*.pem
+*.key
+.env

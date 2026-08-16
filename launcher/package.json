@@ -1,0 +1,13 @@
+{
+  "name": "krypton-client-launcher",
+  "version": "1.0.0",
+  "description": "Krypton Client - macOS Minecraft client launcher",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "krypton",
+  "version": "${version}",
+  "name": "Krypton Client",
+  "description": "The Krypton Client - a lightweight, configurable Minecraft utility client.",
+  "authors": ["Krypton"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/krypton/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.krypton.client.KryptonClient"]
+  },
+  "mixins": [
+    "krypton.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1"
+  }
+}

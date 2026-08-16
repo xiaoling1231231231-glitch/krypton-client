@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+const path = require('path');
+const fs = require('fs');
+const modrinth = require('./lib/modrinth');
+const paths = require('../launcher/lib/paths');
+
+const BOLD = '\x1b[1m', DIM = '\x1b[2m', CYAN = '\x1b[36m', GREEN = '\x1b[32m', YELLOW = '\x1b[33m', RED = '\x1b[31m', RESET = '\x1b[0m';
+
+function installedModsDir(gameVersion) {
+  return paths.getVersionModsDir(gameVersion);
+}
+
+function installedMods(gameVersion) {
+  const dir = installedModsDir(gameVersion);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.jar'));
+}
+
+function detectGameVersion() {
+  const cfg = paths.loadConfig();
+  if (cfg.lastVersion) return cfg.lastVersion;
+  const versions = paths.getVersionsDir();
+  if (!fs.existsSync(versions)) return null;
+  const dirs = fs.readdirSync(versions).filter((d) => fs.existsSync(path.join(versions, d, d + '.json')));
+  return dirs[dirs.length - 1] || null;
+}
+
+async function cmdSearch(args) {
+  const query = args.join(' ');
+  if (!query) return console.log('Usage: krypton search <query>');
+  const res = await modrinth.search(query);
+  if (!res.hits || !res.hits.length) return console.log('No mods found.');
+  console.log(`${GREEN}${res.total_hits}${RESET} results for ${CYAN}"${query}"${RESET}:`);
+  res.hits.forEach((h, i) => {
+    console.log(`  ${BOLD}${i + 1}. ${h.slug}${RESET} ${DIM}(${h.title})${RESET}`);
+    console.log(`${DIM}     ${h.description || ''}${RESET}`);
+    console.log(`${DIM}     downloads: ${h.downloads.toLocaleString()}  updated: ${h.date_modified.slice(0, 10)}${RESET}`);
+  });
+}
+
+async function cmdInfo(args) {
+  const slug = args[0];
+  if (!slug) return console.log('Usage: krypton info <slug>');
+  const p = await modrinth.getProject(slug);
+  console.log(`${BOLD}${p.title}${RESET} ${DIM}(${p.slug})${RESET}`);
+  console.log(`${DIM}${p.description || ''}${RESET}`);
+  console.log(`  ${CYAN}downloads:${RESET} ${p.downloads.toLocaleString()}  ${CYAN}followers:${RESET} ${p.followers}`);
+  console.log(`  ${CYAN}loaders:${RESET} ${(p.loaders || []).join(', ')}  ${CYAN}source:${RESET} ${p.source_url || 'n/a'}`);
+}
+
+async function cmdInstall(args, opts) {
+  const slug = args[0];
+  if (!slug) return console.log('Usage: krypton install <slug> [--mc <version>] [--loader <loader>]');
+  const loader = opts.loader || 'fabric';
+  const gameVersion = opts.mc || detectGameVersion();
+  if (!gameVersion) return console.log(`${RED}No game version detected. Specify one: --mc 1.21.11${RESET}`);
+
+  const p = await modrinth.getProject(slug);
+  const versions = await modrinth.getVersions(p.id, gameVersion, loader);
+  if (!versions || !versions.length) {
+    return console.log(`${RED}No ${loader} versions of "${slug}" for ${gameVersion}.${RESET}`);
+  }
+  const v = versions[0];
+  const file = v.files.find((f) => f.primary) || v.files[0];
+  if (!file) return console.log(`${RED}No downloadable file found.${RESET}`);
+
+  const dir = installedModsDir(gameVersion);
+  fs.mkdirSync(dir, { recursive: true });
+  const dest = path.join(dir, file.filename);
+
+  // Remove stale copies of the same mod
+  const existing = fs.readdirSync(dir).filter((f) => f.startsWith(p.slug));
+  existing.forEach((f) => {
+    const old = path.join(dir, f);
+    console.log(`${YELLOW}removing old:${RESET} ${f}`);
+    fs.rmSync(old, { force: true });
+  });
+
+  console.log(`${CYAN}Installing ${p.title}${RESET} ${DIM}${v.version_number}${RESET} -> ${dest}`);
+  await modrinth.httpDownload(file.url, dest);
+  const bytes = fs.statSync(dest).size;
+  console.log(`${GREEN}Done.${RESET} ${(bytes / 1024 / 1024).toFixed(1)} MB installed for ${gameVersion}.`);
+}
+
+async function cmdRemove(args, opts) {
+  const slug = args[0];
+  if (!slug) return console.log('Usage: krypton remove <slug>');
+  const gameVersion = opts.mc || detectGameVersion();
+  if (!gameVersion) return console.log(`${RED}No game version detected.${RESET}`);
+  const dir = installedModsDir(gameVersion);
+  if (!fs.existsSync(dir)) return console.log('Nothing installed.');
+  const targets = fs.readdirSync(dir).filter((f) => f.startsWith(slug));
+  if (!targets.length) return console.log(`${RED}"${slug}" is not installed for ${gameVersion}.${RESET}`);
+  targets.forEach((f) => {
+    fs.rmSync(path.join(dir, f), { force: true });
+    console.log(`${GREEN}removed:${RESET} ${f}`);
+  });
+}
+
+async function cmdList(args, opts) {
+  const gameVersion = opts.mc || detectGameVersion();
+  if (!gameVersion) return console.log(`${RED}No game version detected.${RESET}`);
+  const mods = installedMods(gameVersion);
+  if (!mods.length) return console.log(`No mods installed for ${gameVersion}. Try: krypton search sodium`);
+  console.log(`${CYAN}Installed mods for ${gameVersion}:${RESET}`);
+  mods.forEach((m) => console.log(`  ${GREEN}•${RESET} ${m}`));
+  console.log(`${DIM}(${mods.length} jar(s) in ${installedModsDir(gameVersion)})${RESET}`);
+}
+
+async function main() {
+  const [cmd, ...rest] = process.argv.slice(2);
+  const opts = {};
+  const args = [];
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === '--mc') opts.mc = rest[++i];
+    else if (rest[i] === '--loader') opts.loader = rest[++i];
+    else args.push(rest[i]);
+  }
+
+  try {
+    switch (cmd) {
+      case 'search': await cmdSearch(args); break;
+      case 'info': await cmdInfo(args); break;
+      case 'install': await cmdInstall(args, opts); break;
+      case 'remove': await cmdRemove(args, opts); break;
+      case 'list': await cmdList(args, opts); break;
+      case 'version': console.log('krypton-cli 1.0.0'); break;
+      default:
+        console.log(`${BOLD}Krypton mod manager${RESET} ${DIM}- Modrinth mods in your terminal${RESET}\n`);
+        console.log('  search <query>              search Modrinth mods');
+        console.log('  info <slug>                 show mod details');
+        console.log('  install <slug> [--mc V]     install a mod (default: latest installed game version)');
+        console.log('  remove <slug> [--mc V]      uninstall a mod');
+        console.log('  list [--mc V]               list installed mods');
+        console.log('  version                     show version\n');
+        console.log('  options: --mc <game version>   e.g. 1.21.11');
+        console.log('           --loader <loader>     e.g. fabric, forge');
+    }
+  } catch (e) {
+    console.error(`${RED}error:${RESET} ${e.message}`);
+    process.exit(1);
+  }
+}
+
+main();

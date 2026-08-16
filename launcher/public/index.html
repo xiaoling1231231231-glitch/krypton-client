@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krypton Client</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 40 40" width="40" height="40">
+        <defs>
+          <linearGradient id="kg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#7b2ff7"/>
+          </linearGradient>
+        </defs>
+        <polygon points="20,3 35,11 35,29 20,37 5,29 5,11" fill="none" stroke="url(#kg)" stroke-width="2.5"/>
+        <circle cx="20" cy="20" r="6" fill="url(#kg)"/>
+      </svg>
+      <div>
+        <h1>KRYPTON</h1>
+        <span>CLIENT</span>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-tab="play">Play</button>
+      <button class="nav-btn" data-tab="versions">Versions</button>
+      <button class="nav-btn" data-tab="mods">Mods</button>
+      <button class="nav-btn" data-tab="settings">Settings</button>
+    </nav>
+    <div class="sidebar-footer">v1.0.0 • macos</div>
+  </aside>
+
+  <main>
+    <section id="tab-play" class="tab active">
+      <div class="play-card">
+        <div class="play-card-left">
+          <h2 id="selected-version">Select a version</h2>
+          <p class="subtitle" id="selected-version-detail">Pick an installation to get started</p>
+          <div class="account-row">
+            <select id="account-select"></select>
+            <input type="text" id="new-account-name" placeholder="Offline username">
+            <button id="add-account-btn" class="btn secondary">Add</button>
+          </div>
+          <button id="play-btn" class="btn primary big" disabled>Install &amp; Play</button>
+          <div id="status" class="status"></div>
+        </div>
+        <div class="play-card-right" id="news">
+          <h3>News</h3>
+          <div class="news-item"><h4>Krypton Client</h4><p>Your new home on the server. Every version, one client.</p></div>
+          <div class="news-item"><h4>Module system</h4><p>ClickGUI, HUD, combat &amp; visual modules. Press Y in-game.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-versions" class="tab">
+      <div class="toolbar">
+        <input type="text" id="version-search" placeholder="Search versions...">
+        <label class="checkbox"><input type="checkbox" id="fabric-toggle" checked> Fabric (modded)</label>
+      </div>
+      <div id="version-list" class="version-list"></div>
+    </section>
+
+    <section id="tab-mods" class="tab">
+      <h2>Mods</h2>
+      <p class="subtitle">Fabric API is auto-installed with Fabric versions. Drop .jar files into the mods folder.</p>
+      <div class="mods-folder">
+        <code id="mods-path"></code>
+        <button id="open-mods-btn" class="btn secondary">Open folder</button>
+      </div>
+      <div id="mods-list" class="version-list"></div>
+    </section>
+
+    <section id="tab-settings" class="tab">
+      <h2>Settings</h2>
+      <div class="settings-grid">
+        <label>Memory (MB)
+          <input type="number" id="memory-input" value="2048" min="512" step="512">
+        </label>
+        <label>Window width
+          <input type="number" id="width-input" value="854">
+        </label>
+        <label>Window height
+          <input type="number" id="height-input" value="480">
+        </label>
+        <label>Java path (optional)
+          <input type="text" id="java-input" placeholder="auto-detect">
+        </label>
+      </div>
+      <button id="save-settings-btn" class="btn primary">Save</button>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
