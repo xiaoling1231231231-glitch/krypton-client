@@ -31,7 +31,12 @@ const server = http.createServer(async (req, res) => {
       if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
         const ext = path.extname(fp);
         const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
-        res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
+        res.writeHead(200, {
+          'Content-Type': types[ext] || 'application/octet-stream',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        });
         return res.end(fs.readFileSync(fp));
       }
       res.writeHead(404); return res.end('not found');
