@@ -245,11 +245,24 @@ async function fetchJson(url) {
 }
 
 // Copy the built Krypton mod jar into the version's mods folder so Fabric loads it.
+// The mod is compiled against 1.21.x, so only install for supported versions.
+function modSupports(mcVersion) {
+  const m = /^(\d+)\.(\d+)(?:\.(\d+))?/.exec(mcVersion);
+  if (!m) return false;
+  const [_, maj, min] = m.map((x) => parseInt(x));
+  return maj === 1 && min >= 21 && min < 22;
+}
+
 function installKryptonMod(mcVersion) {
   try {
+    const dest = path.join(paths.getVersionModsDir(mcVersion), 'krypton-client.jar');
+    if (!modSupports(mcVersion)) {
+      if (fs.existsSync(dest)) fs.unlinkSync(dest);
+      console.log(`[krypton] skipping mod for ${mcVersion} (unsupported)`);
+      return;
+    }
     const repoMod = path.join(__dirname, '..', 'mod', 'build', 'libs', 'krypton-client-1.0.0.jar');
     if (!fs.existsSync(repoMod)) return;
-    const dest = path.join(paths.getVersionModsDir(mcVersion), 'krypton-client.jar');
     fs.copyFileSync(repoMod, dest);
     console.log(`[krypton] installed mod jar for ${mcVersion} to`, dest);
   } catch (e) {
