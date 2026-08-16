@@ -41,8 +41,16 @@
           <p class="subtitle" id="selected-version-detail">Pick an installation to get started</p>
           <div class="account-row">
             <select id="account-select"></select>
+          </div>
+          <div class="account-row">
             <input type="text" id="new-account-name" placeholder="Offline username">
             <button id="add-account-btn" class="btn secondary">Add</button>
+            <button id="ms-login-btn" class="btn secondary accent">Sign in with Microsoft</button>
+          </div>
+          <div id="ms-flow" class="ms-flow hidden">
+            <p class="ms-message" id="ms-message"></p>
+            <p class="ms-code" id="ms-code"></p>
+            <p class="ms-hint">Open the URL above in your browser and enter the code.</p>
           </div>
           <button id="play-btn" class="btn primary big" disabled>Install &amp; Play</button>
           <div id="status" class="status"></div>

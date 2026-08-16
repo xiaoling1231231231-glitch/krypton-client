@@ -12,6 +12,7 @@ const $ = (id) => document.getElementById(id);
 async function init() {
   bindTabs();
   state.config = await api('/api/config');
+  state.selected = state.config.lastVersion || null;
   $('memory-input').value = state.config.memory || 2048;
   $('width-input').value = state.config.width || 854;
   $('height-input').value = state.config.height || 480;
@@ -41,6 +42,7 @@ async function loadVersions() {
 
   $('version-search').addEventListener('input', renderVersionList);
   $('fabric-toggle').addEventListener('change', renderVersionList);
+  if (state.selected) updateSelectedDisplay();
 }
 
 function renderVersionList() {
@@ -50,36 +52,69 @@ function renderVersionList() {
   list.innerHTML = '';
   let versions = state.minecraft;
   if (fabricOnly) versions = versions.filter((v) => state.fabric.includes(v.id));
-  versions.filter((v) => v.id.toLowerCase().includes(q))
-    .slice(0, 120)
-    .forEach((v) => {
-      const el = document.createElement('div');
-      el.className = 'version-item' + (state.selected === v.id ? ' selected' : '');
-      const fabricSupported = state.fabric.includes(v.id);
-      el.innerHTML = `
-        <div class="vname">${escapeHtml(v.id)}</div>
-        <div class="vtype">${v.type} • ${v.releaseTime.slice(0, 10)}</div>
-        ${fabricSupported ? '<span class="vbadge">Fabric ✓</span>' : ''}`;
-      el.addEventListener('click', () => {
-        state.selected = v.id;
-        $('selected-version').textContent = v.id;
-        $('selected-version-detail').textContent = `${v.type} • ${fabricSupported ? 'Fabric supported' : 'Vanilla'}`;
-        $('play-btn').disabled = false;
-        renderVersionList();
-      });
-      list.appendChild(el);
-    });
+  versions = versions.filter((v) => v.id.toLowerCase().includes(q));
+  const matched = versions.slice(0, 300);
+
+  const releases = matched.filter((v) => v.type === 'release');
+  const snapshots = matched.filter((v) => v.type !== 'release');
+
+  if (releases.length) {
+    list.appendChild(header('Releases'));
+    releases.forEach((v) => list.appendChild(item(v)));
+  }
+  if (snapshots.length) {
+    list.appendChild(header('Snapshots & others'));
+    snapshots.forEach((v) => list.appendChild(item(v)));
+  }
+  if (!matched.length) list.innerHTML = '<p class="muted">No versions found.</p>';
+}
+
+function header(label) {
+  const el = document.createElement('div');
+  el.className = 'list-header';
+  el.textContent = label;
+  return el;
+}
+
+function item(v) {
+  const fabricSupported = state.fabric.includes(v.id);
+  const el = document.createElement('div');
+  el.className = 'version-item' + (state.selected === v.id ? ' selected' : '');
+  el.innerHTML = `
+    <div class="vname">${escapeHtml(v.id)}</div>
+    <div class="vtype">${v.type} • ${v.releaseTime.slice(0, 10)}</div>
+    ${fabricSupported ? '<span class="vbadge">Fabric ✓</span>' : ''}`;
+  el.addEventListener('click', () => {
+    state.selected = v.id;
+    updateSelectedDisplay(fabricSupported);
+    renderVersionList();
+  });
+  return el;
+}
+
+function updateSelectedDisplay(fabricSupported) {
+  const v = state.minecraft.find((x) => x.id === state.selected);
+  if (!v) return;
+  const fab = fabricSupported !== undefined ? fabricSupported : state.fabric.includes(v.id);
+  $('selected-version').textContent = v.id;
+  $('selected-version-detail').textContent = `${v.type} • ${fab ? 'Fabric supported' : 'Vanilla'}`;
+  $('play-btn').disabled = false;
 }
 
 function renderAccounts() {
   const sel = $('account-select');
   sel.innerHTML = '';
-  (state.config.accounts || []).forEach((a) => {
+  const accounts = state.config.accounts || [];
+  accounts.forEach((a) => {
     const o = document.createElement('option');
     o.value = a.username;
-    o.textContent = `${a.displayName} (${a.type})`;
+    o.textContent = `${a.displayName} (${a.type === 'msa' ? 'Microsoft' : 'Offline'})`;
     sel.appendChild(o);
   });
+  if (accounts.length && !accounts.find((a) => a.username === sel.value)) {
+    const selAcc = state.config.selectedAccount;
+    if (selAcc) sel.value = selAcc;
+  }
 }
 
 function bindSettings() {
@@ -91,6 +126,8 @@ function bindSettings() {
     renderAccounts();
     $('new-account-name').value = '';
   });
+
+  $('ms-login-btn').addEventListener('click', msLogin);
 
   $('save-settings-btn').addEventListener('click', async () => {
     await api('/api/config', {
@@ -113,11 +150,52 @@ function bindSettings() {
   $('play-btn').addEventListener('click', play);
 }
 
+let msPollTimer = null;
+
+async function msLogin() {
+  setStatus('Starting Microsoft sign-in...');
+  const res = await api('/api/auth/ms/start', { method: 'POST' });
+  if (res.error) return setStatus('MS login failed: ' + res.error, 'err');
+
+  const flow = $('ms-flow');
+  flow.classList.remove('hidden');
+  $('ms-message').textContent = res.message || 'Sign in with your Microsoft account.';
+  $('ms-code').textContent = res.userCode;
+
+  clearInterval(msPollTimer);
+  const intervalMs = (res.interval || 5) * 1000;
+  msPollTimer = setInterval(async () => {
+    const r = await api('/api/auth/ms/poll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceCode: res.deviceCode }),
+    });
+    if (r.pending) {
+      if (r.error === 'authorization_pending') return;
+      if (r.error === 'expired_token') {
+        clearInterval(msPollTimer);
+        setStatus('Login window expired. Try again.', 'err');
+      }
+      return;
+    }
+    clearInterval(msPollTimer);
+    flow.classList.add('hidden');
+    state.config = await api('/api/config');
+    renderAccounts();
+    setStatus(`Signed in as ${r.account.displayName}`, 'done');
+  }, intervalMs);
+}
+
 async function play() {
   const mcVersion = state.selected;
   if (!mcVersion) return;
   const fabric = $('fabric-toggle').checked;
   const username = $('account-select').value || 'KryptonUser';
+  await api('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lastVersion: mcVersion }),
+  });
   setStatus(`Installing ${mcVersion}${fabric ? ' + Fabric' : ''}...`);
   const inst = await api('/api/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mcVersion, fabric }) });
   if (inst.error) return setStatus('Install failed: ' + inst.error, 'err');

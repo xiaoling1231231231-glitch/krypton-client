@@ -69,8 +69,43 @@ const server = http.createServer(async (req, res) => {
       req.on('end', () => {
         const { username } = JSON.parse(body);
         const cfg = paths.loadConfig();
-        const acc = auth.addAccount(cfg, username);
+        const acc = auth.addOfflineAccount(cfg, username);
         json(res, 200, acc);
+      });
+      return;
+    }
+
+    // Microsoft OAuth device-code flow
+    if (p === '/api/auth/ms/start' && req.method === 'POST') {
+      try {
+        const flow = await auth.msStart();
+        return json(res, 200, {
+          deviceCode: flow.device_code,
+          userCode: flow.user_code,
+          verificationUri: flow.verification_uri,
+          expiresIn: flow.expires_in,
+          interval: flow.interval,
+          message: flow.message,
+        });
+      } catch (e) {
+        return json(res, 500, { error: e.message });
+      }
+    }
+
+    if (p === '/api/auth/ms/poll' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', async () => {
+        const { deviceCode } = JSON.parse(body);
+        try {
+          const result = await auth.msPoll(deviceCode);
+          if (result.pending) return json(res, 200, { pending: true, error: result.error });
+          const cfg = paths.loadConfig();
+          const acc = auth.addAccount(cfg, result);
+          return json(res, 200, { pending: false, account: acc });
+        } catch (e) {
+          return json(res, 500, { error: e.message });
+        }
       });
       return;
     }
@@ -139,7 +174,20 @@ const server = http.createServer(async (req, res) => {
               : null);
           if (!versionJson) return json(res, 400, { error: 'version not installed' });
           stageMods(mcVersion);
-          const account = auth.offlineAccount(username || 'KryptonUser');
+
+          // Use the selected account if it exists (MSA or offline), else fall back.
+          let account = null;
+          if (username) {
+            account = (cfg.accounts || []).find((a) => a.username === username);
+          }
+          if (!account && cfg.selectedAccount) {
+            account = (cfg.accounts || []).find((a) => a.username === cfg.selectedAccount);
+          }
+          if (!account) account = auth.offlineAccount(username || 'KryptonUser');
+
+          // Remember the last version for the CLI/UI.
+          paths.saveConfig({ ...cfg, lastVersion: mcVersion });
+
           const gameDir = paths.getGameDir();
           const child = launch.launch({
             versionJson,
