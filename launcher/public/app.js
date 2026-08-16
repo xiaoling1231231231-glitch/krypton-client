@@ -80,14 +80,15 @@ function item(v) {
   const fabricSupported = state.fabric.includes(v.id);
   const el = document.createElement('div');
   el.className = 'version-item' + (state.selected === v.id ? ' selected' : '');
+  el.dataset.id = v.id;
   el.innerHTML = `
     <div class="vname">${escapeHtml(v.id)}</div>
     <div class="vtype">${v.type} • ${v.releaseTime.slice(0, 10)}</div>
     ${fabricSupported ? '<span class="vbadge">Fabric ✓</span>' : ''}`;
   el.addEventListener('click', () => {
     state.selected = v.id;
+    document.querySelectorAll('.version-item').forEach((n) => n.classList.toggle('selected', n.dataset.id === v.id));
     updateSelectedDisplay(fabricSupported);
-    renderVersionList();
   });
   return el;
 }
